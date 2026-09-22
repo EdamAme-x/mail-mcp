@@ -81,19 +81,26 @@ export class Gmail {
     const text: string[] = []
     const html: string[] = []
     const attachments: { filename: string; mimeType?: string; size?: number; attachmentId?: string }[] = []
-    const visit = (part: Part) => {
-      if (part.filename) {
-        attachments.push({ filename: part.filename, mimeType: part.mimeType, size: part.body?.size, attachmentId: part.body?.attachmentId })
+    const visit = async (part: Part): Promise<void> => {
+      const partHeader = (name: string) => part.headers?.find(h => h.name.toLowerCase() === name)?.value ?? ''
+      if (part.filename || /^attachment(?:\s*;|\s*$)/i.test(partHeader('content-disposition'))) {
+        attachments.push({ filename: part.filename ?? '', mimeType: part.mimeType, size: part.body?.size, attachmentId: part.body?.attachmentId })
         return
       }
-      if (part.body?.data) {
-        const decoded = Buffer.from(part.body.data, 'base64url').toString('utf8')
+      if (part.mimeType === 'text/plain' || part.mimeType === 'text/html') {
+        let data = part.body?.data
+        if (!data && part.body?.attachmentId) {
+          const body = await this.request<{ data: string }>(`messages/${encodeURIComponent(id)}/attachments/${encodeURIComponent(part.body.attachmentId)}`)
+          data = body.data
+        }
+        const charset = /(?:^|;)\s*charset\s*=\s*(?:"([^"]+)"|([^;\s]+))/i.exec(partHeader('content-type'))
+        const decoded = new TextDecoder(charset?.[1] ?? charset?.[2] ?? 'utf-8').decode(Buffer.from(data ?? '', 'base64url'))
         if (part.mimeType === 'text/plain') text.push(decoded)
         if (part.mimeType === 'text/html') html.push(decoded)
       }
-      part.parts?.forEach(visit)
+      for (const child of part.parts ?? []) await visit(child)
     }
-    if (message.payload) visit(message.payload)
+    if (message.payload) await visit(message.payload)
     return {
       id: message.id, threadId: message.threadId, labelIds: message.labelIds,
       from: header('from'), to: header('to'), subject: header('subject'), date: header('date'),

@@ -4,6 +4,7 @@ import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { request as httpRequest } from 'node:http'
 import { serve } from '@hono/node-server'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
@@ -112,6 +113,39 @@ test('real MCP HTTP client initializes, lists and calls tools, and validates arg
   assert.equal(invalid.isError, true)
 })
 
+test('message body stored separately is fetched, but file attachments are not', async t => {
+  const store = await temporaryStore(t)
+  await store.save(credentials)
+  const paths: string[] = []
+  const gmail = new Gmail(store, async input => {
+    const path = new URL(String(input)).pathname
+    paths.push(path)
+    if (path.endsWith('/attachments/body-id')) {
+      return Response.json({ data: Buffer.from('Full message body').toString('base64url') })
+    }
+    return Response.json({ id: '123', threadId: '456', payload: { parts: [
+      { mimeType: 'text/plain', body: { data: '', attachmentId: 'body-id' } },
+      { mimeType: 'text/plain', filename: 'file.txt', body: { attachmentId: 'file-id' } },
+      { mimeType: 'text/plain', headers: [{ name: 'Content-Disposition', value: 'attachment' }], body: { attachmentId: 'unnamed-file-id' } },
+    ] } })
+  })
+  const message = await gmail.get('123')
+  assert.equal(message.text, 'Full message body')
+  assert.equal(message.attachments.length, 2)
+  assert.deepEqual(paths, ['/gmail/v1/users/me/messages/123', '/gmail/v1/users/me/messages/123/attachments/body-id'])
+})
+
+test('message body uses the MIME charset instead of assuming UTF-8', async t => {
+  const store = await temporaryStore(t)
+  await store.save(credentials)
+  const gmail = new Gmail(store, async () => Response.json({ id: '123', threadId: '456', payload: {
+    mimeType: 'text/plain',
+    headers: [{ name: 'Content-Type', value: 'text/plain; charset="Shift_JIS"' }],
+    body: { data: Buffer.from([0x82, 0xa0]).toString('base64url') },
+  } }))
+  assert.equal((await gmail.get('123')).text, 'あ')
+})
+
 test('HTTP rejects foreign hosts and browser origins', async () => {
   const app = createApp({} as Gmail)
   assert.equal((await app.request('http://evil.example/mcp', { method: 'POST' })).status, 403)
@@ -139,6 +173,15 @@ test('login validates state, uses PKCE and saves exchanged tokens', async t => {
   const pending = login(store, path)
   authUrl = await urlReady
   const callback = new URL(authUrl.searchParams.get('redirect_uri')!)
+  const malformedStatus = await new Promise<number | undefined>((resolve, reject) => {
+    const req = httpRequest({ hostname: callback.hostname, port: callback.port, path: '//[' }, res => {
+      res.resume()
+      res.on('end', () => resolve(res.statusCode))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+  assert.equal(malformedStatus, 400)
   callback.search = new URLSearchParams({ state: 'wrong', code: 'test-code' }).toString()
   assert.equal((await realFetch(callback)).status, 400)
   callback.searchParams.set('state', authUrl.searchParams.get('state')!)

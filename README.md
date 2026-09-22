@@ -12,7 +12,6 @@ Requires Node.js 22 or newer. Supports one Gmail account, read-only.
 3. Install and log in:
 
 ```sh
-# After the package is published:
 npm install -g mail-mcp
 mail-mcp login --credentials /path/to/google-desktop-client.json
 mail-mcp serve
@@ -24,7 +23,7 @@ Login uses PKCE and `gmail.readonly`. Access tokens refresh automatically.
 While an external OAuth app is in testing, Google may expire its refresh tokens
 after seven days; log in again if needed.
 
-For a local checkout before publication:
+To run from a local checkout:
 
 ```sh
 npm ci
@@ -56,7 +55,8 @@ Choose another port with `mail-mcp serve --port 3001`.
 
 `query` accepts Gmail search syntax, e.g. `is:unread` or `from:someone@example.com`.
 Pass `nextPageToken` as `pageToken` to fetch the next page. Read message IDs with
-`get_message`. Attachment contents are not downloaded.
+`get_message`. Text bodies stored separately by Gmail are fetched automatically
+and decoded using their MIME charset. File attachment contents are not downloaded.
 
 ## Credentials
 

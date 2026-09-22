@@ -15,9 +15,11 @@ export async function login(store: TokenStore, credentialsPath: string) {
   let rejectCode!: (error: Error) => void
   const codePromise = new Promise<string>((resolve, reject) => { resolveCode = resolve; rejectCode = reject })
   const listener = createServer((req, res) => {
-    const url = new URL(req.url ?? '/', 'http://127.0.0.1')
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
     res.setHeader('Cache-Control', 'no-store')
+    let url: URL
+    try { url = new URL(req.url ?? '/', 'http://127.0.0.1') }
+    catch { res.writeHead(400).end('Invalid URL'); return }
     if (req.method !== 'GET' || url.pathname !== '/callback') { res.writeHead(404).end('Not found'); return }
     if (url.searchParams.get('state') !== state) { res.writeHead(400).end('Invalid state'); return }
     const code = url.searchParams.get('code')
