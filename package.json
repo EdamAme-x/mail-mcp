@@ -1,0 +1,43 @@
+{
+  "name": "mail-mcp",
+  "version": "0.1.0",
+  "description": "Simple local mail MCP server",
+  "type": "module",
+  "bin": {
+    "mail-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "test": "tsx --test test/*.test.ts",
+    "check": "tsc --noEmit",
+    "prepack": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EdamAme-x/mail-mcp.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@hono/mcp": "^0.3.2",
+    "@hono/node-server": "^2.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "hono": "^4.13.8",
+    "hono-rate-limiter": "^0.5.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

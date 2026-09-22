@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tgz
+.env*
+.mail-mcp/
+credentials*.json
+tokens*.json
