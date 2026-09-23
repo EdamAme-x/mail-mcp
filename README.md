@@ -4,17 +4,17 @@ Read and search mail across multiple Gmail, Outlook / Microsoft 365, and IMAP ac
 
 ## Install
 
-The npm package is `local-mail-mcp`; the CLI command is `mail-mcp`.
+The npm package is `simple-mail-mcp`; the CLI command is `mail-mcp`.
 
 ```sh
-npm install -g local-mail-mcp
+npm install -g simple-mail-mcp
 ```
 
 Upgrading from the former scoped package:
 
 ```sh
 npm uninstall -g @ame-x/mail-mcp
-npm install -g local-mail-mcp
+npm install -g simple-mail-mcp
 ```
 
 The command and `~/.mail-mcp` account storage stay the same; existing accounts do not need to be registered again.

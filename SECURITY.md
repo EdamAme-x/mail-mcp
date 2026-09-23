@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes target the latest published version of `local-mail-mcp`. Upgrade older versions before reporting a problem when practical. The former scoped package `@ame-x/mail-mcp` is superseded by `local-mail-mcp`.
+Security fixes target the latest published version of `simple-mail-mcp`. Upgrade older versions before reporting a problem when practical. The former scoped package `@ame-x/mail-mcp` is superseded by `simple-mail-mcp`.
 
 ## Report a vulnerability privately
 
