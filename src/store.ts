@@ -12,6 +12,19 @@ export const credentialsSchema = z.object({
   expiresAt: z.number().finite(),
 })
 export type Credentials = z.infer<typeof credentialsSchema>
+export type CredentialStore<T> = { read(): Promise<T>; save(credentials: T): Promise<void>; directory: string }
+
+export async function writePrivateJson(directory: string, filename: string, data: unknown) {
+  await mkdir(directory, { recursive: true, mode: 0o700 })
+  await chmod(directory, 0o700)
+  const temporary = join(directory, `.write-${randomUUID()}.tmp`)
+  try {
+    await writeFile(temporary, JSON.stringify(data, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
+    await rename(temporary, join(directory, filename))
+  } finally {
+    await rm(temporary, { force: true })
+  }
+}
 
 export class TokenStore {
   constructor(readonly directory = join(homedir(), '.mail-mcp')) {}
@@ -26,15 +39,7 @@ export class TokenStore {
 
   async save(credentials: Credentials): Promise<void> {
     const data = credentialsSchema.parse(credentials)
-    await mkdir(this.directory, { recursive: true, mode: 0o700 })
-    await chmod(this.directory, 0o700)
-    const temporary = join(this.directory, `.tokens-${randomUUID()}.tmp`)
-    try {
-      await writeFile(temporary, JSON.stringify(data, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
-      await rename(temporary, join(this.directory, 'tokens.json'))
-    } finally {
-      await rm(temporary, { force: true })
-    }
+    await writePrivateJson(this.directory, 'tokens.json', data)
   }
 
   async clear(): Promise<void> {

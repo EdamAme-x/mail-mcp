@@ -1,6 +1,6 @@
 {
   "name": "@ame-x/mail-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Simple local mail MCP server",
   "type": "module",
   "bin": {
@@ -33,9 +33,12 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "hono": "^4.13.8",
     "hono-rate-limiter": "^0.5.4",
+    "imapflow": "^2.0.6",
+    "mailparser": "^3.9.28",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^26.6.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"

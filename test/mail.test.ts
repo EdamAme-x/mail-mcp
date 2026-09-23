@@ -12,6 +12,7 @@ import { TokenStore } from '../src/store.js'
 import { Gmail } from '../src/gmail.js'
 import { createApp } from '../src/server.js'
 import { login } from '../src/auth.js'
+import { type MailService } from '../src/service.js'
 
 const credentials = { clientId: 'test-client', clientSecret: 'test-secret', accessToken: 'test-access', refreshToken: 'test-refresh', expiresAt: Date.now() + 3600_000 }
 
@@ -95,7 +96,7 @@ test('message decoding handles nested MIME parts and attachment metadata', async
 })
 
 test('real MCP HTTP client initializes, lists and calls tools, and validates arguments', async t => {
-  const app = createApp({ list: async () => ({ messages: [{ id: '123', threadId: '456' }] }), get: async id => ({ id, text: 'Hello' }) } as Pick<Gmail, 'list' | 'get'>)
+  const app = createApp({ listAccounts: async () => [{ account: 'personal', provider: 'gmail' }], list: async () => ({ messages: [{ id: '123', threadId: '456' }] }), get: async ({ id }) => ({ id, text: 'Hello' }), getMany: async () => [] } as unknown as MailService)
   const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 })
   await new Promise<void>(resolve => server.once('listening', resolve))
   t.after(() => { server.close(); server.closeAllConnections() })
@@ -104,7 +105,7 @@ test('real MCP HTTP client initializes, lists and calls tools, and validates arg
   const client = new Client({ name: 'test', version: '1.0.0' })
   t.after(() => client.close())
   await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${address.port}/mcp`)))
-  assert.deepEqual((await client.listTools()).tools.map(tool => tool.name), ['list_messages', 'get_message'])
+  assert.deepEqual((await client.listTools()).tools.map(tool => tool.name), ['list_accounts', 'list_messages', 'get_message', 'get_messages'])
   const messages = await client.callTool({ name: 'list_messages', arguments: { query: 'is:unread' } })
   assert.match(JSON.stringify(messages), /123/)
   const message = await client.callTool({ name: 'get_message', arguments: { id: '123' } })
@@ -147,7 +148,7 @@ test('message body uses the MIME charset instead of assuming UTF-8', async t => 
 })
 
 test('HTTP rejects foreign hosts and browser origins', async () => {
-  const app = createApp({} as Gmail)
+  const app = createApp({} as MailService)
   assert.equal((await app.request('http://evil.example/mcp', { method: 'POST' })).status, 403)
   assert.equal((await app.request('http://localhost:3000/mcp', { method: 'POST', headers: { origin: 'https://evil.example' } })).status, 403)
 })
