@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible problem using sanitized examples.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For vulnerabilities, use the private security report link instead.
+        Never include tokens, passwords, real email bodies, or personal addresses.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: mail-mcp version, Node.js version, OS, provider, and MCP client.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include minimal commands or tool inputs with fake data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include sanitized error codes and relevant output.
+    validations:
+      required: true
