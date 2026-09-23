@@ -1,0 +1,17 @@
+name: Feature request
+description: Propose a focused improvement to mail-mcp.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What task is difficult or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the interface, alternatives, and any new permissions needed.
+    validations:
+      required: true

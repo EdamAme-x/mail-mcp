@@ -1,32 +1,45 @@
 {
-  "name": "@ame-x/mail-mcp",
+  "name": "mail-mcp",
   "version": "0.3.0",
   "description": "Simple local mail MCP server",
-  "type": "module",
+  "keywords": [
+    "email",
+    "gmail",
+    "hono",
+    "imap",
+    "mcp",
+    "outlook"
+  ],
+  "homepage": "https://github.com/EdamAme-x/mail-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/EdamAme-x/mail-mcp/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EdamAme-x/mail-mcp.git"
+  },
   "bin": {
     "mail-mcp": "dist/cli.js"
   },
   "files": [
     "dist"
   ],
-  "engines": {
-    "node": ">=22"
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "test": "tsx --test test/*.test.ts",
-    "check": "tsc --noEmit",
-    "prepack": "npm run build"
+    "check": "npm run lint && npm run typecheck",
+    "prepack": "npm run build",
+    "fix": "ultracite fix",
+    "lint": "ultracite check",
+    "typecheck": "tsc --noEmit",
+    "format": "oxfmt --write ."
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/EdamAme-x/mail-mcp.git"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "license": "MIT",
   "dependencies": {
     "@hono/mcp": "^0.3.2",
     "@hono/node-server": "^2.1.1",
@@ -41,7 +54,13 @@
   "devDependencies": {
     "@types/mailparser": "^3.4.6",
     "@types/node": "^26.6.2",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "ultracite": "7.12.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
