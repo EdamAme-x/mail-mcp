@@ -12,7 +12,7 @@ Requires Node.js 22 or newer. Supports one Gmail account, read-only.
 3. Install and log in:
 
 ```sh
-npm install -g mail-mcp
+npm install -g @ame-x/mail-mcp
 mail-mcp login --credentials /path/to/google-desktop-client.json
 mail-mcp serve
 ```

@@ -1,5 +1,5 @@
 {
-  "name": "mail-mcp",
+  "name": "@ame-x/mail-mcp",
   "version": "0.1.0",
   "description": "Simple local mail MCP server",
   "type": "module",
