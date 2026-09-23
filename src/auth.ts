@@ -3,11 +3,11 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { z } from 'zod'
 import { exchangeToken } from './gmail.js'
-import { TokenStore } from './store.js'
+import { type CredentialStore, type Credentials } from './store.js'
 
 const clientSchema = z.object({ installed: z.object({ client_id: z.string().min(1), client_secret: z.string().min(1) }) })
 
-export async function login(store: TokenStore, credentialsPath: string) {
+export async function login(store: CredentialStore<Credentials>, credentialsPath: string) {
   const { installed: client } = clientSchema.parse(JSON.parse(await readFile(credentialsPath, 'utf8')))
   const state = randomBytes(32).toString('base64url')
   const verifier = randomBytes(32).toString('base64url')

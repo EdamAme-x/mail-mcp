@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { TokenStore, type Credentials } from './store.js'
+import { type CredentialStore, type Credentials } from './store.js'
+import { mapLimit, type Search } from './mail.js'
 
 const tokenSchema = z.object({
   access_token: z.string().min(1),
@@ -28,7 +29,7 @@ type Message = { id: string; threadId: string; snippet?: string; labelIds?: stri
 
 export class Gmail {
   private refreshing?: Promise<Credentials>
-  constructor(private store: TokenStore, private fetcher: typeof fetch = fetch) {}
+  constructor(private store: CredentialStore<Credentials>, private fetcher: typeof fetch = fetch) {}
 
   private async refresh(credentials: Credentials): Promise<Credentials> {
     this.refreshing ??= (async () => {
@@ -75,6 +76,7 @@ export class Gmail {
   }
 
   async get(id: string) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid Gmail message ID.')
     const message = await this.request<Message>(`messages/${encodeURIComponent(id)}?format=full`)
     const headers = message.payload?.headers ?? []
     const header = (name: string) => headers.find(h => h.name.toLowerCase() === name)?.value ?? ''
@@ -106,5 +108,16 @@ export class Gmail {
       from: header('from'), to: header('to'), subject: header('subject'), date: header('date'),
       snippet: message.snippet, text: text.join('\n'), html: html.join('\n'), attachments,
     }
+  }
+
+  async search(input: Search) {
+    const query = input.query ?? (input.text ? JSON.stringify(input.text) : undefined)
+    const page = await this.list({ ...input, query })
+    const messages = await mapLimit(page.messages, 5, async ({ id }) => {
+      const message = await this.request<Message>(`messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`)
+      const header = (name: string) => message.payload?.headers?.find(h => h.name.toLowerCase() === name)?.value ?? ''
+      return { id, threadId: message.threadId, subject: header('subject'), from: header('from'), date: header('date'), snippet: message.snippet, unread: message.labelIds?.includes('UNREAD') }
+    })
+    return { messages, nextPageToken: page.nextPageToken }
   }
 }
