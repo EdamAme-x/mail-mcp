@@ -1,8 +1,9 @@
-import { access, readdir, readFile, rm, mkdir, chmod } from 'node:fs/promises'
+import { access, readdir, rm, mkdir, chmod } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { credentialsSchema, TokenStore, writePrivateJson, type CredentialStore, type Credentials } from './store.js'
+import { credentialsSchema, TokenStore, writePrivateJson, readStored, type CredentialStore, type Credentials } from './store.js'
+import { failure, MailFault, validate } from './result.js'
 
 export const accountId = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/).refine(id => !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/.test(id), 'Reserved account name')
 export const outlookCredentials = z.object({
@@ -26,7 +27,11 @@ type CredentialsByProvider = { gmail: Credentials; outlook: OutlookCredentials; 
 
 export class Accounts {
   constructor(readonly directory = join(homedir(), '.mail-mcp')) {}
-  private path(id: string) { return join(this.directory, 'accounts', `${accountId.parse(id)}.json`) }
+  private path(id: string) {
+    const parsed = validate(accountId, id)
+    if (parsed.isErr()) throw new MailFault(parsed.error)
+    return join(this.directory, 'accounts', `${parsed.value}.json`)
+  }
 
   async ids(): Promise<string[]> {
     let names: string[] = []
@@ -39,12 +44,12 @@ export class Accounts {
   }
 
   async read(id: string): Promise<Account> {
-    try { return accountSchema.parse(JSON.parse(await readFile(this.path(id), 'utf8'))) }
+    try { return await readStored(this.path(id), accountSchema) }
     catch (error) {
-      if (id === 'default' && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (id === 'default' && error instanceof MailFault && error.detail.code === 'ACCOUNT_NOT_FOUND') {
         return { provider: 'gmail', credentials: await new TokenStore(this.directory).read() }
       }
-      throw new Error('Account is missing or its credentials are invalid.')
+      throw error
     }
   }
 
@@ -69,7 +74,7 @@ export class Accounts {
       directory: this.directory,
       read: async () => {
         const account = await this.read(id)
-        if (account.provider !== provider) throw new Error('Account provider changed. Restart the server.')
+        if (account.provider !== provider) throw new MailFault(failure('PROVIDER_CHANGED'))
         return account.credentials as CredentialsByProvider[P]
       },
       save: async credentials => this.save(id, { provider, credentials } as Account),

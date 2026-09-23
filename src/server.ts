@@ -1,3 +1,4 @@
+import { attempt, guard, type AsyncResult } from './result.js'
 import { Hono } from 'hono'
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -16,18 +17,12 @@ export function createApp(mail: Pick<MailService, 'listAccounts' | 'list' | 'get
     await next()
   })
   app.all('/mcp', async (c) => {
-    const server = new McpServer({ name: 'mail-mcp', version: '0.2.0' })
+    const server = new McpServer({ name: 'mail-mcp', version: '0.3.0' })
     const annotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
-    const result = async (action: () => Promise<unknown>) => {
-      try {
-        return { content: [{ type: 'text' as const, text: JSON.stringify(await action()) }] }
-      } catch (error) {
-        // Only locally generated errors are exposed; upstream bodies may contain secrets.
-        const message = error instanceof Error && /^(Could not read this account|Use text|Use pageToken|query and pageToken|query is Gmail-only|Every selected account|Specify account)/.test(error.message)
-          ? error.message : 'Mail request failed. Check your connection and login.'
-        return { isError: true, content: [{ type: 'text' as const, text: message }] }
-      }
-    }
+    const result = (action: () => AsyncResult<unknown>) => guard(action).andThen(value => attempt(() => JSON.stringify(value))).match(
+      value => ({ content: [{ type: 'text' as const, text: value }] }),
+      error => ({ isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error }) }] }),
+    )
     server.registerTool('list_accounts', {
       description: 'List registered account names and providers. Never returns credentials.',
       inputSchema: {}, annotations,
