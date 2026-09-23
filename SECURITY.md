@@ -6,7 +6,7 @@ Security fixes target the latest published version of `simple-mail-mcp`. Upgrade
 
 ## Report a vulnerability privately
 
-Use [GitHub private vulnerability reporting](https://github.com/EdamAme-x/mail-mcp/security/advisories/new). Do not disclose vulnerabilities in public issues or pull requests before a fix and disclosure plan have been agreed with the maintainer.
+Use [GitHub private vulnerability reporting](https://github.com/EdamAme-x/simple-mail-mcp/security/advisories/new). Do not disclose vulnerabilities in public issues or pull requests before a fix and disclosure plan have been agreed with the maintainer.
 
 Include affected versions, reproduction steps with synthetic data, the expected security boundary, and the potential impact. Do not include live access tokens, refresh tokens, OAuth client secrets, app passwords, or private email content. If GitHub reporting is unavailable, open an issue asking for a private contact without including vulnerability details. This is a volunteer-maintained project; response and remediation times are not guaranteed.
 
