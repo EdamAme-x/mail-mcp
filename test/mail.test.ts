@@ -1,3 +1,4 @@
+import { okAsync } from 'neverthrow'
 import assert from 'node:assert/strict'
 import { test, type TestContext } from 'node:test'
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
@@ -24,7 +25,7 @@ async function temporaryStore(t: TestContext) {
 
 test('credentials round-trip, replace atomically, and logout', async t => {
   const store = await temporaryStore(t)
-  await assert.rejects(store.read(), /No valid credentials/)
+  await assert.rejects(store.read(), /Account not found/)
   await store.save(credentials)
   assert.deepEqual(await store.read(), credentials)
   await store.save({ ...credentials, accessToken: 'new-access' })
@@ -35,7 +36,7 @@ test('credentials round-trip, replace atomically, and logout', async t => {
     assert.equal((await stat(join(store.directory, 'tokens.json'))).mode & 0o777, 0o600)
   }
   await store.clear()
-  await assert.rejects(store.read(), /No valid credentials/)
+  await assert.rejects(store.read(), /Account not found/)
 })
 
 test('expired tokens refresh once for concurrent requests and preserve the refresh token', async t => {
@@ -70,7 +71,7 @@ test('401 refreshes once and retries; provider errors do not expose response bod
     requests++
     return new Response('secret provider body', { status: 401 })
   })
-  await assert.rejects(gmail.list({}), { message: 'Gmail request failed (401).' })
+  await assert.rejects(gmail.list({}), { name: 'MailFault', message: 'Authentication expired or was rejected. Log in to this account again.' })
   assert.equal(requests, 2)
 })
 
@@ -96,7 +97,7 @@ test('message decoding handles nested MIME parts and attachment metadata', async
 })
 
 test('real MCP HTTP client initializes, lists and calls tools, and validates arguments', async t => {
-  const app = createApp({ listAccounts: async () => [{ account: 'personal', provider: 'gmail' }], list: async () => ({ messages: [{ id: '123', threadId: '456' }] }), get: async ({ id }) => ({ id, text: 'Hello' }), getMany: async () => [] } as unknown as MailService)
+  const app = createApp({ listAccounts: () => okAsync([{ account: 'personal', provider: 'gmail' }]), list: () => okAsync({ messages: [{ id: '123', threadId: '456' }] }), get: ({ id }: { id: string }) => okAsync({ id, text: 'Hello' }), getMany: () => okAsync([]) } as unknown as MailService)
   const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 })
   await new Promise<void>(resolve => server.once('listening', resolve))
   t.after(() => { server.close(); server.closeAllConnections() })

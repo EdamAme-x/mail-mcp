@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { failure, MailFault, validate } from './result.js'
 
 export const credentialsSchema = z.object({
   clientId: z.string().min(1),
@@ -13,6 +14,17 @@ export const credentialsSchema = z.object({
 })
 export type Credentials = z.infer<typeof credentialsSchema>
 export type CredentialStore<T> = { read(): Promise<T>; save(credentials: T): Promise<void>; directory: string }
+
+export async function readStored<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+  let text: string
+  try { text = await readFile(path, 'utf8') }
+  catch (error) { throw new MailFault(failure((error as NodeJS.ErrnoException).code === 'ENOENT' ? 'ACCOUNT_NOT_FOUND' : 'STORAGE')) }
+  let value: unknown
+  try { value = JSON.parse(text) } catch { throw new MailFault(failure('CREDENTIALS_INVALID')) }
+  const result = validate(schema, value, 'CREDENTIALS_INVALID')
+  if (result.isErr()) throw new MailFault(result.error)
+  return result.value
+}
 
 export async function writePrivateJson(directory: string, filename: string, data: unknown) {
   await mkdir(directory, { recursive: true, mode: 0o700 })
@@ -30,11 +42,7 @@ export class TokenStore {
   constructor(readonly directory = join(homedir(), '.mail-mcp')) {}
 
   async read(): Promise<Credentials> {
-    try {
-      return credentialsSchema.parse(JSON.parse(await readFile(join(this.directory, 'tokens.json'), 'utf8')))
-    } catch {
-      throw new Error('No valid credentials found. Run mail-mcp login --credentials <client.json>.')
-    }
+    return readStored(join(this.directory, 'tokens.json'), credentialsSchema)
   }
 
   async save(credentials: Credentials): Promise<void> {

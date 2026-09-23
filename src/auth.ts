@@ -1,3 +1,4 @@
+import { failure, MailFault } from './result.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -25,7 +26,7 @@ export async function login(store: CredentialStore<Credentials>, credentialsPath
     const code = url.searchParams.get('code')
     if (url.searchParams.has('error') || !code) {
       res.writeHead(400).end('Authorization failed. Return to the terminal.')
-      rejectCode(new Error('Google authorization was denied or returned no code.'))
+      rejectCode(new MailFault(failure('AUTH_REQUIRED')))
       return
     }
     res.end('Authorization received. Return to the terminal to check completion.')
@@ -36,7 +37,7 @@ export async function login(store: CredentialStore<Credentials>, credentialsPath
     listener.listen(0, '127.0.0.1', resolve)
   })
   const address = listener.address()
-  if (!address || typeof address === 'string') throw new Error('Could not start OAuth callback listener.')
+  if (!address || typeof address === 'string') throw new MailFault(failure('NETWORK'))
   const redirectUri = `http://127.0.0.1:${address.port}/callback`
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   url.search = new URLSearchParams({
@@ -46,7 +47,7 @@ export async function login(store: CredentialStore<Credentials>, credentialsPath
     code_challenge: createHash('sha256').update(verifier).digest('base64url'),
     code_challenge_method: 'S256',
   }).toString()
-  const timer = setTimeout(() => rejectCode(new Error('Login timed out after 5 minutes.')), 300_000)
+  const timer = setTimeout(() => rejectCode(new MailFault(failure('TIMEOUT'))), 300_000)
   try {
     console.error(`Open this URL in your browser:\n${url}`)
     const code = await codePromise
@@ -54,7 +55,7 @@ export async function login(store: CredentialStore<Credentials>, credentialsPath
       client_id: client.client_id, client_secret: client.client_secret,
       code, code_verifier: verifier, redirect_uri: redirectUri, grant_type: 'authorization_code',
     })
-    if (!token.refresh_token) throw new Error('Google returned no refresh token. Revoke the app grant and log in again.')
+    if (!token.refresh_token) throw new MailFault(failure('AUTH_REQUIRED'))
     await store.save({
       clientId: client.client_id, clientSecret: client.client_secret,
       accessToken: token.access_token, refreshToken: token.refresh_token,

@@ -1,3 +1,4 @@
+import { valueOrThrow } from '../src/result.js'
 import assert from 'node:assert/strict'
 import { test, type TestContext } from 'node:test'
 import { mkdtemp, rm, writeFile, readdir } from 'node:fs/promises'
@@ -46,7 +47,7 @@ test('account paths cannot escape storage; account listing never exposes credent
   await accounts.save('personal', { provider: 'gmail', credentials: gmail })
   await accounts.save('other', { provider: 'imap', credentials: imap })
   await writeFile(join(accounts.directory, 'accounts', 'broken.json'), 'invalid json secret')
-  const listed = await new MailService(accounts).listAccounts()
+  const listed = await valueOrThrow(new MailService(accounts).listAccounts())
   const serialized = JSON.stringify(listed)
   assert(!serialized.includes('secret'))
   assert(!serialized.includes('password'))
@@ -68,19 +69,19 @@ test('cross-provider search isolates failures and pagination does not restart co
       return { messages: [{ id: 'same-id', subject: id, date: id === 'work' ? '2026-09-23T10:00:00Z' : '2026-09-22T10:00:00Z' }], nextPageToken: id === 'personal' && !input.pageToken ? 'next' : undefined }
     }, get: async () => ({}),
   }))
-  const first = await service.list({ text: 'invoice', limit: 3 })
+  const first = await valueOrThrow(service.list({ text: 'invoice', limit: 3 }))
   assert.deepEqual(first.messages.map(m => m.account), ['work', 'personal'])
   assert.deepEqual(first.messages.map(m => m.provider), ['outlook', 'gmail'])
   assert.equal(first.errors[0]?.account, 'other')
   assert(!JSON.stringify(first).includes('app-password'))
   assert(calls.every(c => c.text === 'invoice' && c.limit === 3))
   calls.length = 0
-  const second = await service.list({ text: 'invoice', limit: 3, pageTokens: first.nextPageTokens })
+  const second = await valueOrThrow(service.list({ text: 'invoice', limit: 3, pageTokens: first.nextPageTokens }))
   assert.deepEqual(calls, [{ account: 'personal', text: 'invoice', limit: 3, page: 'next' }])
   assert.equal(second.messages.length, 1)
-  assert.equal((await service.list({ pageTokens: {} })).messages.length, 0)
-  await assert.rejects(service.list({ query: 'is:unread' }), /exactly one/)
-  await assert.rejects(service.list({ query: 'is:unread', accounts: ['work'] }), /Gmail-only/)
+  assert.equal((await valueOrThrow(service.list({ pageTokens: {} }))).messages.length, 0)
+  await assert.rejects(valueOrThrow(service.list({ query: 'is:unread' })), /Invalid arguments/)
+  await assert.rejects(valueOrThrow(service.list({ query: 'is:unread', accounts: ['work'] })), /Invalid arguments/)
 })
 
 test('batch reads route identical IDs to the right account and retain partial results', async t => {
@@ -91,8 +92,8 @@ test('batch reads route identical IDs to the right account and retain partial re
     if (id === 'fail') throw new Error('sensitive upstream error')
     return { text: `${account}/${id}` }
   } }))
-  await assert.rejects(service.get({ id: 'same' }), /Specify account/)
-  const result = await service.getMany([{ account: 'a', id: 'same' }, { account: 'b', id: 'same' }, { account: 'a', id: 'fail' }])
+  await assert.rejects(valueOrThrow(service.get({ id: 'same' })), /Invalid arguments/)
+  const result = await valueOrThrow(service.getMany([{ account: 'a', id: 'same' }, { account: 'b', id: 'same' }, { account: 'a', id: 'fail' }]))
   assert.deepEqual(result.slice(0, 2).map(r => 'message' in r && r.message), [{ text: 'a/same' }, { text: 'b/same' }])
   assert('error' in result[2]!)
   assert(!JSON.stringify(result).includes('sensitive upstream'))
@@ -131,7 +132,7 @@ test('Gmail cross-provider keywords are quoted and metadata is returned', async 
   assert.equal(page.messages[0]?.subject, 'Invoice')
   assert.equal(page.messages[0]?.unread, true)
   assert.equal(page.nextPageToken, 'next')
-  await assert.rejects(client.get('../profile'), /Invalid Gmail/)
+  await assert.rejects(client.get('../profile'), /Invalid arguments/)
 })
 
 test('Outlook refresh rotation, keyword search and pagination preserve account scope', async t => {
@@ -152,7 +153,7 @@ test('Outlook refresh rotation, keyword search and pagination preserve account s
   await client.list({ pageToken: first.nextPageToken })
   assert.equal(urls.at(-1)?.searchParams.get('$skip'), '20')
   const before = urls.length
-  await assert.rejects(client.list({ pageToken: 'https://evil.example/v1.0/me/messages' }), /Invalid Outlook/)
+  await assert.rejects(client.list({ pageToken: 'https://evil.example/v1.0/me/messages' }), /Invalid arguments/)
   assert.equal(urls.length, before)
 })
 
@@ -222,6 +223,6 @@ test('IMAP reading parses MIME, preserves read-only access and bounds download s
   assert.equal(message.text.trim(), 'Hello')
   assert.equal(message.unread, true)
   size = 11 * 1024 * 1024
-  await assert.rejects(client.get('42:5'), /10 MiB/)
+  await assert.rejects(client.get('42:5'), /size limit/)
   assert.equal(sourceFetches, 1)
 })

@@ -173,6 +173,43 @@ are not returned. For IMAP, reading parses the complete raw message, including
 attachments, with a 10 MiB download limit; larger messages return an error.
 Gmail separately stored text bodies are fetched automatically.
 
+## Errors (v0.3)
+
+Tool failures set MCP `isError: true` and return JSON under `error`:
+
+```json
+{"error":{"code":"AUTH_REQUIRED","message":"Authentication expired or was rejected. Log in to this account again.","retryable":false}}
+```
+
+Errors have stable `code`, safe `message`, and `retryable` fields. Rate limits
+and temporary HTTP failures may include `retryAfterMs` from `Retry-After`.
+No automatic retries run except a single OAuth refresh/retry after a 401.
+
+| Code | Action |
+| --- | --- |
+| `INVALID_INPUT` | Check arguments, account selection, and page tokens. |
+| `ACCOUNT_NOT_FOUND`, `CREDENTIALS_INVALID`, `AUTH_REQUIRED` | Register or log in to the affected account again. |
+| `PROVIDER_CHANGED` | Restart the server after changing an account's provider. |
+| `STORAGE` | Check credential file access and available disk space. |
+| `FORBIDDEN` | Check the provider's granted mail permissions. |
+| `NOT_FOUND`, `STALE_CURSOR` | Search again to obtain current message IDs. |
+| `RATE_LIMITED`, `UNAVAILABLE`, `TIMEOUT`, `NETWORK` | Retry later, respecting `retryAfterMs` when present. |
+| `INVALID_RESPONSE`, `TOO_LARGE`, `INTERNAL` | The response could not be processed; retrying unchanged input may not help. |
+| `ALL_FAILED` | Inspect `failures` for each account/message's error and retry advice. |
+
+Cross-account searches and batch reads preserve partial results. Their per-item
+`error` fields now contain these objects instead of v0.2 strings. If every item
+fails, the tool returns `ALL_FAILED` with a `failures` array containing `account`,
+optional `id`, and `error`. An empty successful search remains a success, including
+when other selected accounts fail. This behavior also applies to `list_accounts`.
+
+Provider JSON is validated before use and limited to 16 MiB per response. Outlook
+attachment pagination rejects loops and stops after 100 pages. OAuth refreshes
+are shared within each account's client; a late 401 reuses the refreshed token.
+If saving a rotated token fails, the client retains it in memory and retries
+saving on the next request. Restarting before that save succeeds loses the
+in-memory token and may require logging in again.
+
 ## Stored credentials and upgrading
 
 Credentials are stored as local JSON in `~/.mail-mcp/accounts/<name>.json`.
@@ -198,6 +235,14 @@ no remote authentication; do not expose it through a public proxy. Local process
 can access the endpoint.
 
 ## Development
+
+`MailService` returns `neverthrow` `ResultAsync<T, MailError>`. Use `andThen` for
+dependent operations, `map` for successful values, `orElse` for recovery, and
+`match` at the MCP boundary. Expected failures are values; they do not depend on
+matching exception messages. Promise-based storage, HTTP, and IMAP adapters are
+converted at I/O boundaries with `attempt`. `guard` also captures unexpected
+exceptions in composition callbacks. `valueOrThrow` is reserved for imperative
+protocol adapters and the CLI, outside domain composition.
 
 ```sh
 npm ci
