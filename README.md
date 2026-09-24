@@ -13,7 +13,6 @@ npm install -g simple-mail-mcp
 Upgrading from the former scoped package:
 
 ```sh
-npm uninstall -g @ame-x/mail-mcp
 npm install -g simple-mail-mcp
 ```
 
